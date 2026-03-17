@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador de Meta-análise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+    
+    .tooltip-container { position: relative; display: inline-flex; align-items: center; justify-content: center; cursor: help; }
+    .tooltip-content {
+      position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) scale(0.95);
+      z-index: 100; margin-bottom: 8px; width: 224px; border-radius: 8px; background-color: #1e293b;
+      padding: 10px; font-size: 12px; font-weight: normal; color: white; opacity: 0;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); transition: all 0.2s; pointer-events: none; visibility: hidden; text-align: center; line-height: 1.5;
+    }
+    .tooltip-container:hover .tooltip-content { transform: translateX(-50%) scale(1); opacity: 1; visibility: visible; }
+    .tooltip-arrow { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); border-width: 4px; border-style: solid; border-color: #1e293b transparent transparent transparent; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 p-3 md:p-8 font-sans text-slate-800 selection:bg-blue-200">
+  
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Cabeçalho -->
+    <header class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+        <div class="flex items-center gap-4">
+          <div class="bg-blue-600 p-3 rounded-xl shadow-blue-200 shadow-lg shrink-0">
+            <i data-lucide="book-open" class="text-white w-7 h-7"></i>
+          </div>
+          <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Simulador de Meta-análise</h1>
+            <p class="text-slate-500 text-sm mt-1">Insira os dados, interaja com os modelos e entenda a matemática por trás dos números de uma meta-análise.</p>
+          </div>
+        </div>
+        
+        <div class="flex items-center bg-slate-100 p-1.5 rounded-xl shrink-0 border border-slate-200 shadow-inner">
+          <button id="btn-model-fixed" onclick="setModelType('fixed')" title="Assume que todos os estudos medem o mesmo efeito, dando mais peso aos estudos maiores." class="px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-300 bg-white shadow-md text-blue-700 ring-1 ring-black/5">Efeito Fixo</button>
+          <button id="btn-model-random" onclick="setModelType('random')" title="Assume variação entre os efeitos, distribuindo melhor o peso entre os estudos pequenos e grandes." class="px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-300 text-slate-500 hover:text-slate-800">Efeito Aleatório</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 relative items-start">
+      
+      <!-- COLUNA ESQUERDA -->
+      <div class="xl:col-span-6 space-y-6">
+        
+        <!-- Bloco de Entrada de Dados -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
+          <div class="p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 bg-white rounded-t-2xl">
+            <div>
+              <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                Dados dos Estudos
+                <div class="tooltip-container ml-2">
+                  <i data-lucide="help-circle" class="w-4 h-4 text-slate-400 hover:text-blue-500 transition-colors"></i>
+                  <div class="tooltip-content">Insira os valores coletados de cada pesquisa para calcularmos o risco relativo individual. Interaja com os cards para ver a correspondência nos gráficos ao lado!<span class="tooltip-arrow"></span></div>
+                </div>
+              </h2>
+              <p class="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                <i data-lucide="mouse-pointer-2" class="w-3 h-3"></i> Passe o mouse nos cards para destacar nos gráficos.
+              </p>
+            </div>
+            
+            <div class="flex items-center gap-2">
+               <button onclick="clearAll()" title="Zerar todos os estudos" class="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg text-xs font-semibold transition-colors">
+                 <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Limpar
+               </button>
+               <button onclick="loadExample()" title="Carregar cenário pronto para testar heterogeneidade" class="flex items-center gap-1.5 px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-semibold transition-colors shadow-sm">
+                 <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> Ver Exemplo
+               </button>
+            </div>
+          </div>
+
+          <div class="p-4 md:p-6 space-y-5 bg-slate-50/30">
+            
+            <!-- Container dinâmico da lista de estudos -->
+            <div id="studies-list" class="space-y-5"></div>
+            
+            <button onclick="addStudy()" class="w-full flex items-center justify-center gap-2 py-4 mt-2 border-2 border-dashed border-slate-300 bg-white rounded-2xl text-slate-500 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50/50 transition-all font-semibold shadow-sm hover:shadow">
+              <i data-lucide="plus" class="w-5 h-5"></i> Adicionar Novo Estudo
+            </button>
+
+            <!-- Alerta geral (divisão por zero / n inválido) -->
+            <div id="global-alert" class="hidden m-4 mt-0 p-4 bg-red-50 text-red-700 rounded-xl text-sm flex items-start gap-3 border border-red-100 shadow-sm">
+              <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 mt-0.5"></i>
+              <p><strong>Atenção:</strong> O número de eventos não pode ser maior que o tamanho total do grupo em nenhum dos estudos.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border border-amber-200 shadow-sm text-amber-900">
+          <h3 class="font-bold flex items-center gap-3 mb-4 text-base md:text-lg">
+            <i data-lucide="settings" class="w-6 h-6 text-amber-600"></i> Como interpretar os Modelos?
+          </h3>
+          <div class="space-y-4 text-sm leading-relaxed">
+            <div class="bg-white/60 p-3 rounded-xl border border-amber-100">
+              <strong class="text-amber-800 block mb-1">Efeito Fixo:</strong> Assume que todos medem o mesmo efeito verdadeiro. Estudos grandes ganham muito peso, pequenos quase desaparecem.
+            </div>
+            <div class="bg-white/60 p-3 rounded-xl border border-amber-100">
+              <strong class="text-amber-800 block mb-1">Efeito Aleatório:</strong> Assume variação real entre os estudos. Redistribui o peso, dando voz aos estudos menores e aumentando a incerteza final.
+            </div>
+            <p class="flex items-start gap-2 pt-2"><i data-lucide="info" class="w-5 h-5 text-amber-600 shrink-0"></i> Se o <strong>I² (Heterogeneidade)</strong> for alto, o modelo Aleatório é o mais recomendado.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUNA DIREITA -->
+      <div class="xl:col-span-6 space-y-6 xl:sticky xl:top-6 self-start max-h-none xl:max-h-[calc(100vh-2rem)] overflow-y-auto pb-10 xl:pb-4 pr-1 custom-scrollbar">
+        
+        <!-- Painel de Resultados Combinados -->
+        <div id="results-panel" class="relative overflow-hidden rounded-2xl p-6 text-white shadow-xl transition-all duration-700 bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900">
+          <div class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white opacity-5 blur-3xl"></div>
+          <div class="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-black opacity-10 blur-2xl"></div>
+
+          <div class="relative flex flex-col justify-between items-start gap-4">
+            <div class="w-full flex justify-between items-start">
+               <div>
+                 <h2 class="text-sm font-semibold text-white/80 uppercase tracking-widest mb-1 flex items-center gap-2">
+                   Total Combinado (<span id="result-model-name">Fixo</span>)
+                 </h2>
+                 <div id="result-values" class="hidden flex items-baseline gap-2">
+                   <span id="result-rr" class="text-5xl font-black tracking-tight"></span>
+                   <span class="text-white/80 font-medium">RR</span>
+                 </div>
+                 <p id="result-waiting" class="opacity-90 mt-2 text-sm">Aguardando dados...</p>
+               </div>
+
+               <div id="result-hetero" class="hidden bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-center shrink-0 min-w-[90px]">
+                 <div class="text-[10px] text-white/80 font-bold uppercase tracking-wider mb-1">Heterog.</div>
+                 <div class="flex items-center justify-center gap-1">
+                   <span id="result-i2-text" class="text-xl font-black"></span>
+                   <span class="text-xs font-medium">I²</span>
+                 </div>
+                 <div class="w-full bg-black/30 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                   <div id="result-i2-bar" class="h-full rounded-full bg-emerald-400" style="width: 0%"></div>
+                 </div>
+               </div>
+            </div>
+
+            <div id="result-ci-container" class="hidden w-full pt-3 border-t border-white/20">
+               <span class="text-[10px] text-white/70 uppercase tracking-wider font-semibold block mb-0.5">Intervalo de Confiança 95%</span>
+               <span id="result-ci-text" class="font-bold text-lg tracking-wide"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráfico de Floresta -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div class="flex items-center gap-4">
+              <h2 class="text-lg font-bold text-slate-800">Gráfico de Floresta Completo</h2>
+              
+              <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <button id="btn-scale-linear" onclick="setScaleType('linear')" class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-colors text-slate-500 hover:text-slate-700">Linear</button>
+                <button id="btn-scale-log" onclick="setScaleType('log')" class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-colors bg-white shadow-sm text-blue-700">Log</button>
+              </div>
+            </div>
+            <button onclick="exportGraphToPNG('forest-svg', 'forest_plot_completo', 1800)" title="Exportar PNG em Alta Resolução" class="flex items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-blue-200 self-start sm:self-auto">
+              <i data-lucide="download" class="w-4 h-4"></i> Exportar Tabela & Gráfico
+            </button>
+          </div>
+          
+          <div class="relative w-full bg-white rounded-xl border border-slate-200 p-2 overflow-x-auto custom-scrollbar">
+            <div id="forest-container"></div>
+          </div>
+        </div>
+
+        <!-- Gráfico de Funil -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-slate-800">Gráfico de Funil</h2>
+            <button onclick="exportGraphToPNG('funnel-svg', 'funnel_plot', 1000)" title="Exportar PNG" class="text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 p-2 rounded-lg transition-colors">
+              <i data-lucide="download" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div class="relative w-full bg-slate-50/50 rounded-xl border border-slate-200 p-2 overflow-hidden">
+            <div id="funnel-container"></div>
+          </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl p-6 border border-indigo-200 shadow-sm text-indigo-900">
+          <h3 class="font-bold flex items-center gap-3 mb-4 text-base md:text-lg">
+            <i data-lucide="info" class="w-6 h-6 text-indigo-600"></i> O que é o Gráfico de Funil?
+          </h3>
+          <div class="space-y-3 text-sm leading-relaxed">
+            <p>Ferramenta visual para detectar possíveis <strong>vieses de publicação</strong>.</p>
+            <ul class="list-disc list-inside text-indigo-800 ml-1 space-y-1">
+              <li><strong>Eixo vertical:</strong> Precisão do estudo. Estudos grandes ficam no topo.</li>
+              <li><strong>Eixo horizontal:</strong> Risco Relativo.</li>
+              <li><strong>Triângulo tracejado:</strong> Região esperada (simétrica) sem viés.</li>
+            </ul>
+            <div class="bg-white/60 p-3 rounded-xl border border-indigo-100 mt-2">
+              <strong class="text-indigo-800 block">Como interpretar?</strong> 
+              Se o gráfico for assimétrico (ex: faltando bolinhas pequenas à direita), estudos com resultados negativos podem não ter sido publicados.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Rodapé Institucional -->
+    <footer class="mt-12 pt-8 pb-4 border-t border-slate-200 text-center text-slate-500 text-sm">
+      <p class="mb-2">Material complementar da disciplina de Pesquisa em Ciências da Saúde.</p>
+      <p class="font-medium text-slate-600">Universidade Estadual de Ciências da Saúde de Alagoas (UNCISAL)</p>
+      <p>Maceió, Alagoas, Brasil</p>
+      <p class="mt-3 text-xs opacity-80">© 2026</p>
+    </footer>
+
+  </div>
+
+  <script>
+    // ESTADO DA APLICAÇÃO
+    let studies = [
+      { id: 1, name: 'Estudo A', e1: 15, n1: 100, e2: 25, n2: 100 },
+      { id: 2, name: 'Estudo B', e1: 10, n1: 50, e2: 12, n2: 50 },
+      { id: 3, name: 'Estudo C', e1: 30, n1: 200, e2: 20, n2: 200 }
+    ];
+    let nextId = 4;
+    let modelType = 'fixed';
+    let scaleType = 'log';
+    let hoveredStudyId = null;
+    let expandedMath = {};
+
+    let processedData = [];
+    let metaResult = null;
+    let heteroData = null;
+    let totalsData = null;
+
+    // INICIALIZAÇÃO
+    document.addEventListener('DOMContentLoaded', () => {
+      renderStudiesList();
+      lucide.createIcons();
+    });
+
+    // AÇÕES DO USUÁRIO
+    function setModelType(type) {
+      modelType = type;
+      
+      const btnFixed = document.getElementById('btn-model-fixed');
+      const btnRandom = document.getElementById('btn-model-random');
+      
+      if(type === 'fixed') {
+        btnFixed.className = "px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-300 bg-white shadow-md text-blue-700 ring-1 ring-black/5";
+        btnRandom.className = "px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-300 text-slate-500 hover:text-slate-800";
+        document.getElementById('results-panel').className = "relative overflow-hidden rounded-2xl p-6 text-white shadow-xl transition-all duration-700 bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900";
+        document.getElementById('result-model-name').innerText = "Fixo";
+      } else {
+        btnRandom.className = "px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-300 bg-white shadow-md text-teal-700 ring-1 ring-black/5";
+        btnFixed.className = "px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-300 text-slate-500 hover:text-slate-800";
+        document.getElementById('results-panel').className = "relative overflow-hidden rounded-2xl p-6 text-white shadow-xl transition-all duration-700 bg-gradient-to-br from-teal-600 via-emerald-700 to-emerald-900";
+        document.getElementById('result-model-name').innerText = "Aleatório";
+      }
+      
+      recalculateAndUpdateUI();
+    }
+
+    function setScaleType(type) {
+      scaleType = type;
+      const btnLinear = document.getElementById('btn-scale-linear');
+      const btnLog = document.getElementById('btn-scale-log');
+      
+      if(type === 'linear') {
+        btnLinear.className = "px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-colors bg-white shadow-sm text-blue-700";
+        btnLog.className = "px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-colors text-slate-500 hover:text-slate-700";
+      } else {
+        btnLog.className = "px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-colors bg-white shadow-sm text-blue-700";
+        btnLinear.className = "px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-colors text-slate-500 hover:text-slate-700";
+      }
+      recalculateAndUpdateUI();
+    }
+
+    function addStudy() {
+      const nameSuffix = nextId <= 26 ? String.fromCharCode(64 + nextId) : nextId;
+      studies.push({ id: nextId, name: `Estudo ${nameSuffix}`, e1: '', n1: '', e2: '', n2: '' });
+      nextId++;
+      renderStudiesList();
+    }
+
+    function removeStudy(id) {
+      studies = studies.filter(s => s.id !== id);
+      renderStudiesList();
+    }
+
+    function updateStudyValue(id, field, value) {
+      const studyIndex = studies.findIndex(s => s.id === id);
+      if (studyIndex === -1) return;
+      
+      if (field === 'name') {
+        studies[studyIndex].name = value;
+      } else {
+        const newVal = value === '' ? '' : Math.max(0, parseInt(value) || 0);
+        studies[studyIndex][field] = newVal;
+      }
+      recalculateAndUpdateUI();
+    }
+
+    function toggleMath(id) {
+      expandedMath[id] = !expandedMath[id];
+      renderStudiesList(); // Apenas para recriar as caixas expandidas
+    }
+
+    function clearAll() {
+      studies = [{ id: 1, name: 'Estudo 1', e1: '', n1: '', e2: '', n2: '' }];
+      nextId = 2;
+      expandedMath = {};
+      renderStudiesList();
+    }
+
+    function loadExample() {
+      studies = [
+        { id: 1, name: 'Estudo Alpha', e1: 40, n1: 100, e2: 10, n2: 100 },
+        { id: 2, name: 'Estudo Beta', e1: 15, n1: 200, e2: 18, n2: 200 },
+        { id: 3, name: 'Estudo Gamma', e1: 80, n1: 150, e2: 75, n2: 150 },
+        { id: 4, name: 'Estudo Delta', e1: 5, n1: 50, e2: 25, n2: 50 },
+        { id: 5, name: 'Estudo Epsilon', e1: 0, n1: 30, e2: 5, n2: 30 },
+      ];
+      nextId = 6;
+      expandedMath = {};
+      setModelType('random');
+      renderStudiesList();
+    }
+
+    function setHovered(id) {
+      hoveredStudyId = id;
+      
+      // Destaca o card
+      document.querySelectorAll('.study-card').forEach(el => {
+        if(el.dataset.id == id) {
+          el.classList.add('border-blue-400', 'shadow-md', 'ring-2', 'ring-blue-50');
+          el.classList.remove('border-slate-200');
+        } else {
+          el.classList.remove('border-blue-400', 'shadow-md', 'ring-2', 'ring-blue-50');
+          el.classList.add('border-slate-200');
+        }
+      });
+      
+      // Atualiza SVGs rapidamente para mudar opacidades
+      renderSVGs();
+    }
+
+    // EXPORTAÇÃO DE PNG
+    function exportGraphToPNG(svgId, fileNamePrefix, customWidth = 1600) {
+      const svgElement = document.getElementById(svgId);
+      if (!svgElement) return;
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      const width = customWidth;
+      const viewBox = svgElement.getAttribute('viewBox').split(' ');
+      const svgW = parseFloat(viewBox[2]);
+      const svgH = parseFloat(viewBox[3]);
+      const height = (svgH / svgW) * width;
+      const footerHeight = 80;
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height + footerHeight;
+      const ctx = canvas.getContext('2d');
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      const img = new Image();
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, width, height);
+        ctx.fillStyle = '#64748b';
+        ctx.font = '20px sans-serif';
+        ctx.textAlign = 'center';
+        const dateStr = new Date().toLocaleString('pt-BR');
+        const urlStr = window.location.href;
+        ctx.fillText(`Gerado em: ${dateStr}`, width / 2, height + 30);
+        ctx.fillText(`Fonte: ${urlStr}`, width / 2, height + 60);
+        
+        const pngUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = pngUrl;
+        a.download = `${fileNamePrefix}_${new Date().getTime()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    }
+
+    // LÓGICA MATEMÁTICA
+    function runCalculations() {
+      let sumWFixed = 0, sumWLogRRFixed = 0, sumWSqFixed = 0;
+      let totalTratE = 0, totalTratN = 0, totalCtrlE = 0, totalCtrlN = 0;
+
+      const baseData = studies.map(study => {
+        let e1 = parseFloat(study.e1); let n1 = parseFloat(study.n1);
+        let e2 = parseFloat(study.e2); let n2 = parseFloat(study.n2);
+        
+        if (isNaN(e1) || isNaN(n1) || isNaN(e2) || isNaN(n2) || n1 <= 0 || n2 <= 0 || e1 > n1 || e2 > n2) {
+          return { ...study, valid: false, zeroCorrection: false };
+        }
+
+        let zeroCorrection = false;
+        const originalE1 = e1; const originalN1 = n1;
+        const originalE2 = e2; const originalN2 = n2;
+
+        totalTratE += originalE1; totalTratN += originalN1;
+        totalCtrlE += originalE2; totalCtrlN += originalN2;
+
+        if (e1 === 0 || e2 === 0 || e1 === n1 || e2 === n2) {
+          e1 += 0.5; n1 += 1; e2 += 0.5; n2 += 1;
+          zeroCorrection = true;
+        }
+
+        const p1 = e1 / n1; const p2 = e2 / n2;
+        const rr = p1 / p2; const logRR = Math.log(rr);
+        const se = Math.sqrt((1 / e1) - (1 / n1) + (1 / e2) - (1 / n2));
+        
+        if (isNaN(se) || se === 0) return { ...study, valid: false, zeroCorrection };
+        const wFixed = 1 / (se * se);
+        
+        return { 
+          ...study, valid: true, rr, logRR, se, wFixed, zeroCorrection,
+          calcData: { e1, n1, e2, n2, p1, p2, originalE1, originalN1, originalE2, originalN2 } 
+        };
+      });
+
+      const validStudies = baseData.filter(s => s.valid);
+      
+      if (validStudies.length === 0) {
+        processedData = baseData;
+        metaResult = null;
+        heteroData = null;
+        totalsData = null;
+        return;
+      }
+
+      validStudies.forEach(s => { sumWFixed += s.wFixed; sumWLogRRFixed += s.wFixed * s.logRR; sumWSqFixed += s.wFixed * s.wFixed; });
+      const pooledLogRRFixed = sumWLogRRFixed / sumWFixed;
+
+      let Q = 0;
+      validStudies.forEach(s => { Q += s.wFixed * Math.pow(s.logRR - pooledLogRRFixed, 2); });
+      const df = validStudies.length - 1;
+      let tau2 = 0;
+      if (Q > df && sumWFixed > 0) { const C = sumWFixed - (sumWSqFixed / sumWFixed); tau2 = (Q - df) / C; }
+      const i2 = Math.max(0, ((Q - df) / Q) * 100) || 0;
+
+      let finalSumW = 0, finalSumWLogRR = 0, maxWeight = 0;
+      const finalData = baseData.map(s => {
+        if (!s.valid) return s;
+        const finalWeight = modelType === 'random' ? 1 / (s.se * s.se + tau2) : s.wFixed;
+        const ciLower = Math.exp(s.logRR - 1.96 * s.se);
+        const ciUpper = Math.exp(s.logRR + 1.96 * s.se);
+        finalSumW += finalWeight; finalSumWLogRR += finalWeight * s.logRR;
+        if (finalWeight > maxWeight) maxWeight = finalWeight;
+        return { ...s, ciLower, ciUpper, weight: finalWeight };
+      });
+
+      processedData = finalData.map(s => {
+        if (s.valid) {
+          const percentageWeight = finalSumW > 0 ? ((s.weight / finalSumW) * 100).toFixed(1) : '0.0';
+          return { ...s, relativeWeight: s.weight / maxWeight, percentageWeight };
+        }
+        return s;
+      });
+
+      const pooledLogRR = finalSumWLogRR / finalSumW;
+      const pooledSE = Math.sqrt(1 / finalSumW);
+      metaResult = {
+        rr: Math.exp(pooledLogRR), logRR: pooledLogRR,
+        ciLower: Math.exp(pooledLogRR - 1.96 * pooledSE), ciUpper: Math.exp(pooledLogRR + 1.96 * pooledSE),
+      };
+      
+      heteroData = { q: Q, df, i2, tau2 };
+      totalsData = { totalTratE, totalTratN, totalCtrlE, totalCtrlN };
+    }
+
+    // ATUALIZAÇÃO DO DOM (RENDERING)
+    function recalculateAndUpdateUI() {
+      runCalculations();
+      
+      // Update individual results visually via DOM to keep focus
+      let hasError = false;
+      processedData.forEach(study => {
+        if (parseFloat(study.e1) > parseFloat(study.n1) || parseFloat(study.e2) > parseFloat(study.n2)) {
+          hasError = true;
+        }
+
+        const resEl = document.getElementById(`res-study-${study.id}`);
+        const weightEl = document.getElementById(`weight-study-${study.id}`);
+        
+        if(resEl) {
+          if (study.valid) {
+            resEl.innerHTML = `<span class="font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md">RR ${study.rr.toFixed(2)} <span class="text-slate-400 font-normal ml-1">[${study.ciLower.toFixed(2)}, ${study.ciUpper.toFixed(2)}]</span></span>`;
+            if(weightEl && metaResult) {
+              const bgClass = modelType === 'fixed' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-teal-50 text-teal-700 border-teal-200';
+              weightEl.innerHTML = `<div class="flex items-center gap-2"><span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Peso</span><span class="text-xs font-bold px-2.5 py-1 rounded-full shadow-sm border ${bgClass}">${study.percentageWeight}%</span></div>`;
+            }
+          } else {
+            resEl.innerHTML = `<span class="text-amber-700 bg-amber-100 px-2.5 py-1 rounded-md text-xs font-semibold">Dados Incompletos</span>`;
+            if(weightEl) weightEl.innerHTML = '';
+          }
+        }
+      });
+
+      document.getElementById('global-alert').style.display = hasError ? 'flex' : 'none';
+
+      // Update Combined Result Panel
+      if (metaResult) {
+        document.getElementById('result-waiting').classList.add('hidden');
+        document.getElementById('result-values').classList.remove('hidden');
+        document.getElementById('result-rr').innerText = metaResult.rr.toFixed(2);
+        
+        document.getElementById('result-ci-container').classList.remove('hidden');
+        document.getElementById('result-ci-text').innerText = `[${metaResult.ciLower.toFixed(2)} a ${metaResult.ciUpper.toFixed(2)}]`;
+        
+        if (heteroData) {
+          document.getElementById('result-hetero').classList.remove('hidden');
+          document.getElementById('result-i2-text').innerText = `${heteroData.i2.toFixed(0)}%`;
+          
+          let colorClass = 'bg-emerald-400';
+          if(heteroData.i2 >= 25 && heteroData.i2 < 50) colorClass = 'bg-yellow-400';
+          else if(heteroData.i2 >= 50) colorClass = 'bg-red-400';
+          
+          document.getElementById('result-i2-bar').className = `h-full rounded-full ${colorClass}`;
+          document.getElementById('result-i2-bar').style.width = `${Math.min(100, Math.max(0, heteroData.i2))}%`;
+        }
+      } else {
+        document.getElementById('result-waiting').classList.remove('hidden');
+        document.getElementById('result-values').classList.add('hidden');
+        document.getElementById('result-ci-container').classList.add('hidden');
+        document.getElementById('result-hetero').classList.add('hidden');
+      }
+
+      renderSVGs();
+    }
+
+    function renderStudiesList() {
+      runCalculations();
+      const container = document.getElementById('studies-list');
+      
+      let html = '';
+      processedData.forEach(study => {
+        const hasErrorTrat = parseFloat(study.e1) > parseFloat(study.n1);
+        const hasErrorCtrl = parseFloat(study.e2) > parseFloat(study.n2);
+
+        html += `
+          <div data-id="${study.id}" class="study-card bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm transition-all duration-300 group hover:border-slate-300 hover:shadow-md" onmouseenter="setHovered(${study.id})" onmouseleave="setHovered(null)">
+            
+            <div class="flex justify-between items-center mb-4 gap-4">
+              <div class="flex-1">
+                <input type="text" value="${study.name}" oninput="updateStudyValue(${study.id}, 'name', this.value)" placeholder="Nome do Estudo" class="text-base md:text-lg font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 outline-none px-1 py-0.5 w-full max-w-xs transition-colors" />
+              </div>
+              <button onclick="removeStudy(${study.id})" class="text-slate-400 hover:text-red-600 bg-white hover:bg-red-50 border border-slate-100 hover:border-red-100 p-2 rounded-full transition-all">
+                <i data-lucide="trash-2" class="w-4 h-4 md:w-5 md:h-5"></i>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div class="bg-blue-50/60 border border-blue-100 rounded-xl p-3">
+                <h4 class="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">Grupo Tratamento</h4>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs font-semibold text-blue-700/80 block mb-1">Eventos</label>
+                    <input type="number" min="0" placeholder="0" value="${study.e1}" oninput="updateStudyValue(${study.id}, 'e1', this.value)" class="w-full border border-blue-200 bg-white rounded-lg px-3 py-2 text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm" />
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold text-blue-700/80 block mb-1">Total (N)</label>
+                    <input type="number" min="1" placeholder="0" value="${study.n1}" oninput="updateStudyValue(${study.id}, 'n1', this.value)" class="w-full border bg-white rounded-lg px-3 py-2 text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm ${hasErrorTrat ? 'border-red-400 bg-red-50 text-red-700' : 'border-blue-200'}" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3">
+                <h4 class="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-3">Grupo Controle</h4>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs font-semibold text-emerald-700/80 block mb-1">Eventos</label>
+                    <input type="number" min="0" placeholder="0" value="${study.e2}" oninput="updateStudyValue(${study.id}, 'e2', this.value)" class="w-full border border-emerald-200 bg-white rounded-lg px-3 py-2 text-sm text-center focus:ring-2 focus:ring-emerald-500 outline-none transition-all shadow-sm" />
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold text-emerald-700/80 block mb-1">Total (N)</label>
+                    <input type="number" min="1" placeholder="0" value="${study.n2}" oninput="updateStudyValue(${study.id}, 'n2', this.value)" class="w-full border bg-white rounded-lg px-3 py-2 text-sm text-center focus:ring-2 focus:ring-emerald-500 outline-none transition-all shadow-sm ${hasErrorCtrl ? 'border-red-400 bg-red-50 text-red-700' : 'border-emerald-200'}" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            ${study.zeroCorrection ? `
+              <div class="mt-3 text-[11px] text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 flex items-center gap-2 font-medium">
+                <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
+                Correção de Haldane-Anscombe aplicada. Somou-se 0.5 a cada grupo para evitar divisão matemática por zero.
+              </div>
+            ` : ''}
+
+            <div class="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+              <div class="flex items-center gap-2 text-sm">
+                <span class="text-slate-500 font-medium flex items-center">Resultado:</span>
+                <div id="res-study-${study.id}"></div>
+              </div>
+              
+              <div class="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                ${study.valid ? `
+                  <button onclick="toggleMath(${study.id})" class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition-colors">
+                    <i data-lucide="calculator" class="w-3.5 h-3.5"></i> Ver Cálculo
+                  </button>
+                ` : ''}
+                <div id="weight-study-${study.id}"></div>
+              </div>
+            </div>
+
+            ${expandedMath[study.id] && study.valid ? `
+              <div class="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-700 space-y-2 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-1 h-full bg-blue-400"></div>
+                <p class="text-xs font-sans font-bold text-slate-400 uppercase tracking-widest mb-3">Memória de Cálculo</p>
+                <div class="flex items-center gap-2">
+                  <span class="text-blue-600 font-bold w-32">Risco (Trat.):</span> 
+                  <span>(${study.calcData.e1} / ${study.calcData.n1}) = <strong>${study.calcData.p1.toFixed(4)}</strong></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-600 font-bold w-32">Risco (Controle):</span> 
+                  <span>(${study.calcData.e2} / ${study.calcData.n2}) = <strong>${study.calcData.p2.toFixed(4)}</strong></span>
+                </div>
+                <div class="h-px bg-slate-200 my-2 w-full"></div>
+                <div class="flex items-center gap-2 text-base">
+                  <span class="text-slate-800 font-bold w-32">Risco Relativo:</span> 
+                  <span>${study.calcData.p1.toFixed(4)} / ${study.calcData.p2.toFixed(4)} = <strong class="text-blue-700">${study.rr.toFixed(2)}</strong></span>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+      lucide.createIcons();
+      recalculateAndUpdateUI();
+    }
+
+    // GERAÇÃO DE SVGS (FOREST E FUNNEL PLOTS)
+    function renderSVGs() {
+      // 1. Setup Configs Forest Plot
+      let minLog = Math.log(0.1); let maxLog = Math.log(10);
+      let minLin = 0; let maxLin = 3;
+      const validStudies = processedData.filter(s => s.valid);
+      
+      if (validStudies.length > 0) {
+        const allLowers = validStudies.map(s => s.ciLower);
+        const allUppers = validStudies.map(s => s.ciUpper);
+        if (metaResult) { allLowers.push(metaResult.ciLower); allUppers.push(metaResult.ciUpper); }
+        const dataMin = Math.min(...allLowers);
+        const dataMax = Math.max(...allUppers);
+        
+        minLog = Math.min(minLog, Math.log(dataMin) - 0.5);
+        maxLog = Math.max(maxLog, Math.log(dataMax) + 0.5);
+        minLin = 0; 
+        maxLin = Math.max(maxLin, dataMax + 0.5);
+      }
+
+      const SVG_WIDTH = 980; 
+      const HEADER_Y = 25; const ROW_START_Y = 70; const ROW_HEIGHT = 45;
+      const PLOT_START_X = 160; const PLOT_END_X = 460;
+      const COL_TRAT_X = 550; const COL_CTRL_X = 660; const COL_WEIGHT_X = 760; const COL_RR_X = 880;
+
+      const mapX = (val) => {
+        const usableWidth = PLOT_END_X - PLOT_START_X;
+        if (scaleType === 'log') {
+          return PLOT_START_X + ((Math.log(val) - minLog) / (maxLog - minLog) * usableWidth);
+        } else {
+          return PLOT_START_X + ((val - minLin) / (maxLin - minLin) * usableWidth);
+        }
+      };
+
+      const yEndStudies = ROW_START_Y + processedData.length * ROW_HEIGHT;
+      const yTotal = metaResult ? yEndStudies + 25 : yEndStudies;
+      const yAxis = yTotal + 45;
+      const forestSvgHeight = Math.max(250, yAxis + 80);
+
+      // Render Forest SVG
+      let forestHtml = `
+        <svg id="forest-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SVG_WIDTH} ${forestSvgHeight}" class="w-full min-w-[700px] h-auto">
+          <text x="10" y="${HEADER_Y}" font-size="14" font-weight="bold" fill="#334155">Estudo</text>
+          
+          <text x="${COL_TRAT_X}" y="${HEADER_Y - 5}" font-size="14" font-weight="bold" fill="#334155" text-anchor="middle">Tratamento</text>
+          <text x="${COL_TRAT_X}" y="${HEADER_Y + 12}" font-size="12" fill="#64748b" text-anchor="middle">n / N</text>
+          
+          <text x="${COL_CTRL_X}" y="${HEADER_Y - 5}" font-size="14" font-weight="bold" fill="#334155" text-anchor="middle">Controle</text>
+          <text x="${COL_CTRL_X}" y="${HEADER_Y + 12}" font-size="12" fill="#64748b" text-anchor="middle">n / N</text>
+          
+          <text x="${COL_WEIGHT_X}" y="${HEADER_Y}" font-size="14" font-weight="bold" fill="#334155" text-anchor="middle">Peso</text>
+          <text x="${COL_RR_X}" y="${HEADER_Y}" font-size="14" font-weight="bold" fill="#334155" text-anchor="middle">RR [IC 95%]</text>
+
+          <line x1="5" y1="${HEADER_Y + 25}" x2="${SVG_WIDTH - 5}" y2="${HEADER_Y + 25}" stroke="#cbd5e1" stroke-width="1" />
+          <line x1="${mapX(1)}" y1="${HEADER_Y + 25}" x2="${mapX(1)}" y2="${yAxis}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 4" />
+      `;
+
+      processedData.forEach((study, index) => {
+        if (!study.valid) return;
+        const y = ROW_START_Y + index * ROW_HEIGHT;
+        const isHovered = hoveredStudyId == study.id;
+        const color = modelType === 'fixed' ? (isHovered ? '#1d4ed8' : '#2563eb') : (isHovered ? '#0f766e' : '#0d9488');
+        const opacity = hoveredStudyId ? (isHovered ? "1" : "0.2") : "1";
+        const bgOpacity = isHovered ? "1" : (index % 2 === 0 ? "0.4" : "0");
+
+        const xRR = mapX(study.rr); const xLower = mapX(study.ciLower); const xUpper = mapX(study.ciUpper);
+        const rectSize = 8 + (study.relativeWeight * 18);
+        const strW = isHovered ? "3" : "2.5";
+
+        forestHtml += `
+          <g opacity="${opacity}" style="transition: opacity 0.3s ease;">
+            <rect x="0" y="${y - 25}" width="${SVG_WIDTH}" height="${ROW_HEIGHT}" fill="${isHovered ? '#eff6ff' : '#f8fafc'}" fill-opacity="${bgOpacity}" />
+            
+            <text x="10" y="${y + 5}" font-size="13" font-weight="${isHovered ? '800' : '600'}" fill="#334155">${study.name}</text>
+            <text x="${COL_TRAT_X}" y="${y + 5}" font-size="13" fill="#475569" text-anchor="middle">${study.calcData.originalE1} / ${study.calcData.originalN1}</text>
+            <text x="${COL_CTRL_X}" y="${y + 5}" font-size="13" fill="#475569" text-anchor="middle">${study.calcData.originalE2} / ${study.calcData.originalN2}</text>
+            <text x="${COL_WEIGHT_X}" y="${y + 5}" font-size="13" fill="#475569" text-anchor="middle">${study.percentageWeight}%</text>
+            <text x="${COL_RR_X}" y="${y + 5}" font-size="13" fill="#475569" text-anchor="middle">${study.rr.toFixed(2)} [${study.ciLower.toFixed(2)}, ${study.ciUpper.toFixed(2)}]</text>
+
+            <line x1="${Math.max(PLOT_START_X, xLower)}" y1="${y}" x2="${Math.min(PLOT_END_X, xUpper)}" y2="${y}" stroke="${color}" stroke-width="${strW}" />
+            ${xLower >= PLOT_START_X ? `<line x1="${xLower}" y1="${y-5}" x2="${xLower}" y2="${y+5}" stroke="${color}" stroke-width="${strW}" />` : ''}
+            ${xUpper <= PLOT_END_X ? `<line x1="${xUpper}" y1="${y-5}" x2="${xUpper}" y2="${y+5}" stroke="${color}" stroke-width="${strW}" />` : ''}
+            
+            ${xLower < PLOT_START_X ? `<polygon points="${PLOT_START_X},${y} ${PLOT_START_X + 6},${y-4} ${PLOT_START_X + 6},${y+4}" fill="${color}" />` : ''}
+            ${xUpper > PLOT_END_X ? `<polygon points="${PLOT_END_X},${y} ${PLOT_END_X - 6},${y-4} ${PLOT_END_X - 6},${y+4}" fill="${color}" />` : ''}
+            
+            <rect x="${xRR - rectSize/2}" y="${y - rectSize/2}" width="${rectSize}" height="${rectSize}" fill="${color}" rx="1" />
+          </g>
+        `;
+      });
+
+      if(metaResult) {
+        forestHtml += `
+          <g opacity="${hoveredStudyId ? '0.3' : '1'}" style="transition: opacity 0.3s ease;">
+            <rect x="0" y="${yTotal - 25}" width="${SVG_WIDTH}" height="${ROW_HEIGHT}" fill="#f1f5f9" opacity="0.6" />
+            <text x="10" y="${yTotal + 3}" font-size="14" font-weight="800" fill="#0f172a">TOTAL (IC 95%)</text>
+            <text x="${COL_TRAT_X}" y="${yTotal + 3}" font-size="13" font-weight="700" fill="#0f172a" text-anchor="middle">${totalsData.totalTratE} / ${totalsData.totalTratN}</text>
+            <text x="${COL_CTRL_X}" y="${yTotal + 3}" font-size="13" font-weight="700" fill="#0f172a" text-anchor="middle">${totalsData.totalCtrlE} / ${totalsData.totalCtrlN}</text>
+            <text x="${COL_WEIGHT_X}" y="${yTotal + 3}" font-size="13" font-weight="700" fill="#0f172a" text-anchor="middle">100.0%</text>
+            <text x="${COL_RR_X}" y="${yTotal + 3}" font-size="14" font-weight="800" fill="#0f172a" text-anchor="middle">${metaResult.rr.toFixed(2)} [${metaResult.ciLower.toFixed(2)}, ${metaResult.ciUpper.toFixed(2)}]</text>
+
+            <line x1="${mapX(metaResult.rr)}" y1="${HEADER_Y + 25}" x2="${mapX(metaResult.rr)}" y2="${yTotal - 12}" stroke="#0f172a" stroke-width="1" stroke-dasharray="3 3" opacity="0.4" />
+            <polygon points="${mapX(metaResult.ciLower)},${yTotal} ${mapX(metaResult.rr)},${yTotal - 12} ${mapX(metaResult.ciUpper)},${yTotal} ${mapX(metaResult.rr)},${yTotal + 12}" fill="#0f172a" />
+          </g>
+        `;
+      }
+
+      forestHtml += `<g opacity="${hoveredStudyId ? '0.3' : '1'}" style="transition: opacity 0.3s ease;">`;
+      forestHtml += `<line x1="${PLOT_START_X - 10}" y1="${yAxis}" x2="${PLOT_END_X + 10}" y2="${yAxis}" stroke="#1e293b" stroke-width="2" />`;
+      
+      const ticks = scaleType === 'log' ? [0.1, 0.2, 0.5, 1, 2, 5, 10] : [0, 0.5, 1, 2, 4, 6, 8, 10, 15, 20];
+      ticks.forEach(tick => {
+        if (scaleType === 'log' ? (Math.log(tick) >= minLog && Math.log(tick) <= maxLog) : (tick >= minLin && tick <= maxLin)) {
+          const x = mapX(tick);
+          forestHtml += `
+            <line x1="${x}" y1="${yAxis}" x2="${x}" y2="${yAxis + 8}" stroke="#1e293b" stroke-width="2" />
+            <text x="${x}" y="${yAxis + 25}" text-anchor="middle" font-size="12" fill="#475569">${tick}</text>
+          `;
+        }
+      });
+      forestHtml += `<text x="${PLOT_START_X + (PLOT_END_X - PLOT_START_X) / 2}" y="${yAxis + 50}" text-anchor="middle" font-size="13" font-weight="bold" fill="#64748b" letter-spacing="0.05em">RISCO RELATIVO ${scaleType === 'log' ? '(ESCALA LOG)' : '(ESCALA LINEAR)'}</text></g>`;
+      forestHtml += `</svg>`;
+      
+      document.getElementById('forest-container').innerHTML = forestHtml;
+
+      // 2. Setup Configs Funnel Plot
+      let funnelMaxSE = 0; let funnelMaxDiff = 0;
+      if (metaResult && validStudies.length > 0) {
+        funnelMaxSE = Math.max(...validStudies.map(s => s.se)) * 1.1; 
+        if (funnelMaxSE === 0) funnelMaxSE = 1;
+        validStudies.forEach(s => { const diff = Math.abs(s.logRR - metaResult.logRR); if (diff > funnelMaxDiff) funnelMaxDiff = diff; });
+        const funnelBoundDiff = 1.96 * funnelMaxSE;
+        if (funnelBoundDiff > funnelMaxDiff) funnelMaxDiff = funnelBoundDiff;
+        funnelMaxDiff *= 1.1; 
+      }
+      
+      const FUNNEL_WIDTH = 500; const FUNNEL_HEIGHT = 350;
+      const F_PAD_X = 60; const F_PAD_Y_TOP = 20; const F_PAD_Y_BOT = 60;
+      
+      const mapFunnelX = (logRR) => {
+        if (!metaResult) return F_PAD_X;
+        const minLogRR = metaResult.logRR - funnelMaxDiff; const maxLogRR = metaResult.logRR + funnelMaxDiff;
+        return F_PAD_X + ((logRR - minLogRR) / (maxLogRR - minLogRR) * (FUNNEL_WIDTH - F_PAD_X * 2));
+      };
+      const mapFunnelY = (se) => funnelMaxSE === 0 ? F_PAD_Y_TOP : F_PAD_Y_TOP + ((se / funnelMaxSE) * (FUNNEL_HEIGHT - F_PAD_Y_TOP - F_PAD_Y_BOT));
+
+      let funnelHtml = `<svg id="funnel-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FUNNEL_WIDTH} ${FUNNEL_HEIGHT}" class="w-full h-auto">`;
+      
+      if(metaResult) {
+        funnelHtml += `
+          <line x1="${F_PAD_X}" y1="${F_PAD_Y_TOP}" x2="${F_PAD_X}" y2="${FUNNEL_HEIGHT - F_PAD_Y_BOT}" stroke="#94a3b8" stroke-width="2" />
+          <text x="${F_PAD_X - 15}" y="${(FUNNEL_HEIGHT - F_PAD_Y_BOT) / 2}" text-anchor="middle" font-size="13" font-weight="bold" fill="#64748b" transform="rotate(-90, ${F_PAD_X - 15}, ${(FUNNEL_HEIGHT - F_PAD_Y_BOT) / 2 + 10})">Erro Padrão</text>
+        `;
+        [0, 0.25, 0.5, 0.75, 1].forEach(frac => {
+          const seVal = funnelMaxSE * frac; const y = mapFunnelY(seVal);
+          funnelHtml += `
+            <line x1="${F_PAD_X - 5}" y1="${y}" x2="${F_PAD_X}" y2="${y}" stroke="#94a3b8" stroke-width="2" />
+            <text x="${F_PAD_X - 10}" y="${y + 4}" text-anchor="end" font-size="11" fill="#475569">${seVal.toFixed(2)}</text>
+          `;
+        });
+        
+        funnelHtml += `<line x1="${F_PAD_X}" y1="${FUNNEL_HEIGHT - F_PAD_Y_BOT}" x2="${FUNNEL_WIDTH - F_PAD_X}" y2="${FUNNEL_HEIGHT - F_PAD_Y_BOT}" stroke="#1e293b" stroke-width="2" />`;
+        
+        [0.1, 0.5, 1, 2, 5, 10].forEach(rr => {
+          const logRR = Math.log(rr);
+          if (logRR >= metaResult.logRR - funnelMaxDiff && logRR <= metaResult.logRR + funnelMaxDiff) {
+            const x = mapFunnelX(logRR);
+            funnelHtml += `
+              <line x1="${x}" y1="${FUNNEL_HEIGHT - F_PAD_Y_BOT}" x2="${x}" y2="${FUNNEL_HEIGHT - F_PAD_Y_BOT + 6}" stroke="#1e293b" stroke-width="2" />
+              <text x="${x}" y="${FUNNEL_HEIGHT - F_PAD_Y_BOT + 20}" text-anchor="middle" font-size="11" fill="#475569">${rr}</text>
+            `;
+          }
+        });
+        
+        funnelHtml += `
+          <line x1="${mapFunnelX(metaResult.logRR)}" y1="${mapFunnelY(0)}" x2="${mapFunnelX(metaResult.logRR)}" y2="${mapFunnelY(funnelMaxSE)}" stroke="#0f172a" stroke-width="2" />
+          <line x1="${mapFunnelX(metaResult.logRR)}" y1="${mapFunnelY(0)}" x2="${mapFunnelX(metaResult.logRR - 1.96 * funnelMaxSE)}" y2="${mapFunnelY(funnelMaxSE)}" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4" />
+          <line x1="${mapFunnelX(metaResult.logRR)}" y1="${mapFunnelY(0)}" x2="${mapFunnelX(metaResult.logRR + 1.96 * funnelMaxSE)}" y2="${mapFunnelY(funnelMaxSE)}" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4" />
+        `;
+
+        validStudies.forEach(study => {
+          const isHovered = hoveredStudyId == study.id;
+          const color = modelType === 'fixed' ? (isHovered ? '#1d4ed8' : '#2563eb') : (isHovered ? '#0f766e' : '#0d9488');
+          const opacity = hoveredStudyId ? (isHovered ? "1" : "0.2") : "0.9";
+          funnelHtml += `
+            <circle cx="${mapFunnelX(study.logRR)}" cy="${mapFunnelY(study.se)}" r="${isHovered ? '8' : '6'}" fill="${color}" stroke="#ffffff" stroke-width="1.5" opacity="${opacity}" style="transition: all 0.3s ease;" />
+          `;
+        });
+      } else {
+        funnelHtml += `<text x="${FUNNEL_WIDTH / 2}" y="${FUNNEL_HEIGHT / 2}" text-anchor="middle" font-size="14" fill="#94a3b8">Adicione estudos</text>`;
+      }
+      funnelHtml += `</svg>`;
+      
+      document.getElementById('funnel-container').innerHTML = funnelHtml;
+    }
+
+  </script>
+</body>
+</html>
