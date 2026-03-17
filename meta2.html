@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador de Metanálise, RR com IC 95%</title>
+  <style>
+    :root {
+      --bg: #eef3f9;
+      --bg-2: #f8fbff;
+      --card: rgba(255, 255, 255, 0.9);
+      --card-solid: #ffffff;
+      --text: #142033;
+      --muted: #607089;
+      --line: #d8e1ee;
+      --line-strong: #c7d3e6;
+      --primary: #1f5eff;
+      --primary-soft: rgba(31, 94, 255, 0.10);
+      --primary-soft-2: rgba(31, 94, 255, 0.16);
+      --success: #0f9d74;
+      --danger: #c53b3b;
+      --warning: #b7791f;
+      --shadow-lg: 0 18px 50px rgba(17, 35, 68, 0.10);
+      --shadow-md: 0 10px 28px rgba(17, 35, 68, 0.08);
+      --radius-xl: 24px;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(31, 94, 255, 0.12), transparent 24%),
+        radial-gradient(circle at top right, rgba(15, 157, 116, 0.08), transparent 20%),
+        linear-gradient(180deg, #f6f9fd 0%, #edf3f9 100%);
+    }
+
+    .container {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 26px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(244,248,255,0.94));
+      border: 1px solid rgba(199, 211, 230, 0.85);
+      border-radius: 30px;
+      padding: 28px;
+      box-shadow: var(--shadow-lg);
+      margin-bottom: 22px;
+      backdrop-filter: blur(10px);
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      right: -60px;
+      top: -80px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(31, 94, 255, 0.16), rgba(31, 94, 255, 0));
+      pointer-events: none;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 0.8fr;
+      gap: 18px;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 34px;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 21px;
+      letter-spacing: -0.01em;
+    }
+
+    p {
+      margin: 0;
+      line-height: 1.58;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .hero-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: #1847b8;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid rgba(31, 94, 255, 0.12);
+    }
+
+    .hero-mini {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .mini-card {
+      background: rgba(255,255,255,0.78);
+      border: 1px solid rgba(199, 211, 230, 0.8);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .mini-card .k {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .mini-card .v {
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(700px, 1.15fr) minmax(420px, 0.85fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 22px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(199, 211, 230, 0.88);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .card-header {
+      padding: 20px 22px 16px 22px;
+      border-bottom: 1px solid rgba(216, 225, 238, 0.9);
+      background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(248,251,255,0.94));
+    }
+
+    .card-body {
+      padding: 20px 22px 22px 22px;
+    }
+
+    .section-top {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+
+    .subtle {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button {
+      appearance: none;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      border-radius: 14px;
+      padding: 11px 15px;
+      font-size: 14px;
+      font-weight: 700;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+      box-shadow: 0 8px 18px rgba(17, 35, 68, 0.10);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, #2d67ff, #1f5eff);
+      color: white;
+    }
+
+    button.secondary {
+      background: linear-gradient(135deg, #2e3e59, #1d283c);
+      color: white;
+    }
+
+    button.ghost {
+      background: #eef4ff;
+      color: #1847b8;
+      border: 1px solid rgba(31, 94, 255, 0.12);
+      box-shadow: none;
+    }
+
+    button.danger {
+      background: linear-gradient(135deg, #d85252, #bf3838);
+      color: white;
+    }
+
+    .toolbar-note {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: #f7faff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .table-shell {
+      border: 1px solid rgba(216, 225, 238, 0.95);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--card-solid);
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 650px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 14px;
+      background: white;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: linear-gradient(180deg, #f9fbff, #f3f7fd);
+      color: #31425d;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--line-strong);
+      padding: 14px 10px;
+    }
+
+    tbody tr:nth-child(odd) {
+      background: #fcfdff;
+    }
+
+    tbody tr:hover {
+      background: #f4f8ff;
+    }
+
+    th, td {
+      text-align: center;
+      vertical-align: middle;
+      padding: 10px 8px;
+      border-bottom: 1px solid #edf2f8;
+    }
+
+    th.left, td.left {
+      text-align: left;
+    }
+
+    tbody td.result-cell {
+      font-weight: 700;
+      color: #24344d;
+    }
+
+    input[type="number"], input[type="text"] {
+      width: 100%;
+      padding: 10px 11px;
+      border-radius: 12px;
+      border: 1px solid #d7e0ed;
+      background: white;
+      font-size: 14px;
+      color: var(--text);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input[type="number"]:focus, input[type="text"]:focus {
+      border-color: rgba(31, 94, 255, 0.42);
+      box-shadow: 0 0 0 4px rgba(31, 94, 255, 0.10);
+      outline: none;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .metric {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(216, 225, 238, 0.92);
+      border-radius: 18px;
+      padding: 16px;
+      background: linear-gradient(180deg, #ffffff, #f9fbff);
+      min-height: 96px;
+    }
+
+    .metric::before {
+      content: "";
+      position: absolute;
+      right: -18px;
+      top: -18px;
+      width: 82px;
+      height: 82px;
+      border-radius: 50%;
+      background: rgba(31, 94, 255, 0.06);
+    }
+
+    .metric .label {
+      position: relative;
+      z-index: 1;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .metric .value {
+      position: relative;
+      z-index: 1;
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+
+    .metric.ok .value {
+      color: var(--success);
+    }
+
+    .metric.warn .value {
+      color: var(--warning);
+    }
+
+    .plot-wrap {
+      border: 1px solid rgba(216, 225, 238, 0.95);
+      border-radius: 20px;
+      overflow: auto;
+      background: linear-gradient(180deg, #ffffff, #fbfdff);
+      padding: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    #forestPlot {
+      width: 100%;
+      min-height: 340px;
+      display: block;
+      background: transparent;
+    }
+
+    .note {
+      font-size: 13px;
+      color: #475970;
+      line-height: 1.65;
+      background: linear-gradient(180deg, #f8fbff, #f2f7fd);
+      border: 1px solid rgba(216, 225, 238, 0.95);
+      padding: 16px;
+      border-radius: 18px;
+    }
+
+    .note strong {
+      color: #22324a;
+    }
+
+    .foot {
+      margin-top: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .info-box {
+      background: #f8fbff;
+      border: 1px solid rgba(216, 225, 238, 0.95);
+      padding: 14px 16px;
+      border-radius: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .footer-label {
+      font-weight: 800;
+      color: #30415c;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .legend-item {
+      padding: 14px;
+      border: 1px solid rgba(216, 225, 238, 0.95);
+      border-radius: 16px;
+      background: #fbfdff;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .legend-item strong {
+      display: block;
+      color: #2a3a54;
+      margin-bottom: 4px;
+    }
+
+    .badge-soft {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #f0f6ff;
+      color: #1b4dca;
+      border: 1px solid rgba(31, 94, 255, 0.12);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 1220px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+      .summary-grid,
+      .hero-mini,
+      .legend-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .container {
+        padding: 16px;
+      }
+      h1 {
+        font-size: 27px;
+      }
+      .summary-grid,
+      .hero-mini,
+      .legend-grid {
+        grid-template-columns: 1fr;
+      }
+      .card-header,
+      .card-body {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <h1>Simulador de Metanálise, Razão de Risco, IC 95%</h1>
+          <p class="muted">Informe os eventos e o tamanho da amostra de cada estudo. O sistema calcula a metanálise por efeito fixo, usando variância inversa sobre o log da razão de risco, e gera automaticamente o forest plot com intervalo de confiança de 95%.</p>
+          <div class="hero-tags">
+            <div class="pill">Medida de efeito, RR</div>
+            <div class="pill">Intervalo de confiança, 95%</div>
+            <div class="pill">Forest plot científico</div>
+          </div>
+        </div>
+        <div class="hero-mini">
+          <div class="mini-card">
+            <div class="k">Modelo</div>
+            <div class="v">Efeito fixo</div>
+          </div>
+          <div class="mini-card">
+            <div class="k">Escala</div>
+            <div class="v">Logarítmica</div>
+          </div>
+          <div class="mini-card">
+            <div class="k">Medida</div>
+            <div class="v">Risco relativo</div>
+          </div>
+          <div class="mini-card">
+            <div class="k">Saída</div>
+            <div class="v">Forest plot</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <section class="card">
+        <div class="card-header">
+          <div class="section-top">
+            <div>
+              <h2>1. Dados dos estudos</h2>
+              <p class="subtle">Cada linha corresponde a um estudo. Preencha eventos e total da amostra em intervenção e controle.</p>
+            </div>
+            <div class="badge-soft">Atualização automática</div>
+          </div>
+          <div class="controls">
+            <button id="addStudyBtn" class="primary">Adicionar estudo</button>
+            <button id="exampleBtn" class="ghost">Carregar exemplo</button>
+            <button id="calcBtn" class="secondary">Calcular metanálise</button>
+            <button id="clearBtn" class="danger">Limpar tudo</button>
+            <button id="exportPngBtn" class="ghost">Exportar forest plot em PNG</button>
+          </div>
+          <div class="toolbar-note">
+            Quando houver célula com zero, o sistema aplica correção de continuidade de 0,5 para permitir o cálculo do RR e do IC 95%.
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-shell">
+            <div class="table-wrap">
+              <table id="studyTable">
+                <thead>
+                  <tr>
+                    <th class="left">Estudo</th>
+                    <th>Eventos<br>Intervenção</th>
+                    <th>Total<br>Intervenção</th>
+                    <th>Eventos<br>Controle</th>
+                    <th>Total<br>Controle</th>
+                    <th>RR</th>
+                    <th>IC 95%</th>
+                    <th>Peso</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="studyBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="stack">
+        <section class="card">
+          <div class="card-header">
+            <h2>2. Resultado da metanálise</h2>
+            <p class="subtle">Síntese quantitativa e interpretação imediata.</p>
+          </div>
+          <div class="card-body">
+            <div class="summary-grid" id="summaryGrid">
+              <div class="metric">
+                <div class="label">Número de estudos</div>
+                <div class="value" id="nStudies">0</div>
+              </div>
+              <div class="metric ok">
+                <div class="label">RR combinado</div>
+                <div class="value" id="pooledRR">,</div>
+              </div>
+              <div class="metric">
+                <div class="label">IC 95%</div>
+                <div class="value" id="pooledCI">,</div>
+              </div>
+              <div class="metric">
+                <div class="label">Valor de p</div>
+                <div class="value" id="pValue">,</div>
+              </div>
+              <div class="metric warn">
+                <div class="label">Q de heterogeneidade</div>
+                <div class="value" id="qValue">,</div>
+              </div>
+              <div class="metric warn">
+                <div class="label">I²</div>
+                <div class="value" id="i2Value">,</div>
+              </div>
+            </div>
+
+            <div style="height:16px"></div>
+            <div class="note" id="interpretation">Insira os dados e clique em calcular.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>3. Forest plot</h2>
+            <p class="subtle">Visualização em escala logarítmica do efeito individual e do efeito combinado.</p>
+          </div>
+          <div class="card-body">
+            <div class="plot-wrap">
+              <svg id="forestPlot" viewBox="0 0 980 420" preserveAspectRatio="xMinYMin meet"></svg>
+            </div>
+            <div class="foot">
+              <div class="legend-grid">
+                <div class="legend-item">
+                  <strong>Quadrado azul</strong>
+                  Representa o efeito individual de cada estudo. O tamanho varia de acordo com o peso estatístico.
+                </div>
+                <div class="legend-item">
+                  <strong>Losango verde</strong>
+                  Representa o efeito combinado da metanálise com seu intervalo de confiança de 95%.
+                </div>
+              </div>
+              <div class="info-box">
+                <span class="footer-label">Nota metodológica.</span>
+                Esta versão usa o método de variância inversa para combinar log RR, com cálculo de IC 95%, teste Z para o efeito global, estatística Q e I² para heterogeneidade.
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const studyBody = document.getElementById('studyBody');
+    const addStudyBtn = document.getElementById('addStudyBtn');
+    const exampleBtn = document.getElementById('exampleBtn');
+    const calcBtn = document.getElementById('calcBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportPngBtn = document.getElementById('exportPngBtn');
+    const forestPlot = document.getElementById('forestPlot');
+
+    let studyCounter = 0;
+
+    function addStudyRow(data = {}) {
+      studyCounter += 1;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="left"><input type="text" value="${escapeHtml(data.label || 'Estudo ' + studyCounter)}" class="study-label"></td>
+        <td><input type="number" min="0" step="1" value="${safeNum(data.e1)}" class="e1"></td>
+        <td><input type="number" min="0" step="1" value="${safeNum(data.n1)}" class="n1"></td>
+        <td><input type="number" min="0" step="1" value="${safeNum(data.e0)}" class="e0"></td>
+        <td><input type="number" min="0" step="1" value="${safeNum(data.n0)}" class="n0"></td>
+        <td class="rr result-cell">,</td>
+        <td class="ci result-cell">,</td>
+        <td class="weight result-cell">,</td>
+        <td><button class="danger remove-btn" type="button">Excluir</button></td>
+      `;
+
+      tr.querySelector('.remove-btn').addEventListener('click', () => {
+        tr.remove();
+        calculateMeta();
+      });
+
+      tr.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', calculateMeta);
+      });
+
+      studyBody.appendChild(tr);
+    }
+
+    function safeNum(v) {
+      return Number.isFinite(v) ? v : '';
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function fmt(num, digits = 2) {
+      if (!Number.isFinite(num)) return ',';
+      return num.toLocaleString('pt-BR', {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      });
+    }
+
+    function parseRow(tr) {
+      const label = tr.querySelector('.study-label').value.trim() || 'Sem nome';
+      const e1 = Number(tr.querySelector('.e1').value);
+      const n1 = Number(tr.querySelector('.n1').value);
+      const e0 = Number(tr.querySelector('.e0').value);
+      const n0 = Number(tr.querySelector('.n0').value);
+      return { label, e1, n1, e0, n0, tr };
+    }
+
+    function isValidStudy(s) {
+      if (![s.e1, s.n1, s.e0, s.n0].every(Number.isFinite)) return false;
+      if (s.n1 <= 0 || s.n0 <= 0) return false;
+      if (s.e1 < 0 || s.e0 < 0) return false;
+      if (s.e1 > s.n1 || s.e0 > s.n0) return false;
+      return true;
+    }
+
+    function erf(x) {
+      const sign = x >= 0 ? 1 : -1;
+      x = Math.abs(x);
+      const a1 = 0.254829592;
+      const a2 = -0.284496736;
+      const a3 = 1.421413741;
+      const a4 = -1.453152027;
+      const a5 = 1.061405429;
+      const p = 0.3275911;
+      const t = 1 / (1 + p * x);
+      const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+      return sign * y;
+    }
+
+    function normalCDF(z) {
+      return 0.5 * (1 + erf(z / Math.sqrt(2)));
+    }
+
+    function calculateStudyEffect(s) {
+      let a = s.e1;
+      let b = s.n1 - s.e1;
+      let c = s.e0;
+      let d = s.n0 - s.e0;
+
+      const hasZero = [a, b, c, d].some(v => v === 0);
+      if (hasZero) {
+        a += 0.5;
+        b += 0.5;
+        c += 0.5;
+        d += 0.5;
+      }
+
+      const risk1 = a / (a + b);
+      const risk0 = c / (c + d);
+      const rr = risk1 / risk0;
+      const logRR = Math.log(rr);
+      const variance = (1 / a) - (1 / (a + b)) + (1 / c) - (1 / (c + d));
+      const se = Math.sqrt(variance);
+      const lcl = Math.exp(logRR - 1.96 * se);
+      const ucl = Math.exp(logRR + 1.96 * se);
+      const weight = 1 / variance;
+
+      return { rr, logRR, variance, se, lcl, ucl, weight, hasZero };
+    }
+
+    function calculateMeta() {
+      const rows = [...studyBody.querySelectorAll('tr')];
+      const studies = rows.map(parseRow).filter(isValidStudy);
+      const allRows = rows.map(parseRow);
+
+      allRows.forEach(r => {
+        r.tr.querySelector('.rr').textContent = ',';
+        r.tr.querySelector('.ci').textContent = ',';
+        r.tr.querySelector('.weight').textContent = ',';
+      });
+
+      if (studies.length === 0) {
+        updateSummary(null);
+        drawForestPlot([]);
+        return;
+      }
+
+      const effects = studies.map(s => ({ ...s, ...calculateStudyEffect(s) }));
+      const sumW = effects.reduce((acc, s) => acc + s.weight, 0);
+      const pooledLogRR = effects.reduce((acc, s) => acc + s.weight * s.logRR, 0) / sumW;
+      const pooledVar = 1 / sumW;
+      const pooledSE = Math.sqrt(pooledVar);
+      const pooledRR = Math.exp(pooledLogRR);
+      const pooledLCL = Math.exp(pooledLogRR - 1.96 * pooledSE);
+      const pooledUCL = Math.exp(pooledLogRR + 1.96 * pooledSE);
+
+      const z = pooledLogRR / pooledSE;
+      const p = 2 * (1 - normalCDF(Math.abs(z)));
+
+      const Q = effects.reduce((acc, s) => acc + s.weight * Math.pow(s.logRR - pooledLogRR, 2), 0);
+      const df = effects.length - 1;
+      const I2 = df > 0 && Q > 0 ? Math.max(0, ((Q - df) / Q) * 100) : 0;
+
+      effects.forEach(s => {
+        const row = rows.find(r =>
+          r.querySelector('.study-label').value.trim() === s.label &&
+          Number(r.querySelector('.e1').value) === s.e1 &&
+          Number(r.querySelector('.n1').value) === s.n1 &&
+          Number(r.querySelector('.e0').value) === s.e0 &&
+          Number(r.querySelector('.n0').value) === s.n0
+        );
+        if (!row) return;
+        row.querySelector('.rr').textContent = fmt(s.rr, 2);
+        row.querySelector('.ci').textContent = `${fmt(s.lcl, 2)} a ${fmt(s.ucl, 2)}`;
+        row.querySelector('.weight').textContent = `${fmt((s.weight / sumW) * 100, 1)}%`;
+      });
+
+      updateSummary({
+        n: effects.length,
+        pooledRR,
+        pooledLCL,
+        pooledUCL,
+        p,
+        Q,
+        I2,
+        z,
+        effects
+      });
+
+      drawForestPlot(effects, { pooledRR, pooledLCL, pooledUCL });
+    }
+
+    function updateSummary(result) {
+      const nStudies = document.getElementById('nStudies');
+      const pooledRR = document.getElementById('pooledRR');
+      const pooledCI = document.getElementById('pooledCI');
+      const pValue = document.getElementById('pValue');
+      const qValue = document.getElementById('qValue');
+      const i2Value = document.getElementById('i2Value');
+      const interpretation = document.getElementById('interpretation');
+
+      if (!result) {
+        nStudies.textContent = '0';
+        pooledRR.textContent = ',';
+        pooledCI.textContent = ',';
+        pValue.textContent = ',';
+        qValue.textContent = ',';
+        i2Value.textContent = ',';
+        interpretation.textContent = 'Insira dados válidos para calcular a metanálise. Cada estudo precisa ter eventos e totais consistentes em ambos os grupos.';
+        return;
+      }
+
+      nStudies.textContent = String(result.n);
+      pooledRR.textContent = fmt(result.pooledRR, 2);
+      pooledCI.textContent = `${fmt(result.pooledLCL, 2)} a ${fmt(result.pooledUCL, 2)}`;
+      pValue.textContent = result.p < 0.001 ? '< 0,001' : fmt(result.p, 3);
+      qValue.textContent = fmt(result.Q, 2);
+      i2Value.textContent = `${fmt(result.I2, 1)}%`;
+
+      let direction = 'não há diferença estatisticamente significativa entre os grupos';
+      if (result.pooledUCL < 1) direction = 'a intervenção reduz o risco em comparação com o controle';
+      if (result.pooledLCL > 1) direction = 'a intervenção aumenta o risco em comparação com o controle';
+
+      let heterogeneity = 'heterogeneidade baixa';
+      if (result.I2 >= 25 && result.I2 < 50) heterogeneity = 'heterogeneidade baixa a moderada';
+      if (result.I2 >= 50 && result.I2 < 75) heterogeneity = 'heterogeneidade moderada';
+      if (result.I2 >= 75) heterogeneity = 'heterogeneidade alta';
+
+      interpretation.innerHTML = `<strong>Interpretação.</strong> O efeito combinado foi RR = ${fmt(result.pooledRR, 2)}, com IC 95% de ${fmt(result.pooledLCL, 2)} a ${fmt(result.pooledUCL, 2)}. Em termos práticos, ${direction}. A síntese inclui ${result.n} estudo(s), com ${heterogeneity}, I² = ${fmt(result.I2, 1)}%.`;
+    }
+
+    function drawForestPlot(effects = [], pooled = null) {
+      const width = 980;
+      const rowHeight = 38;
+      const top = 64;
+      const leftLabel = 26;
+      const colPlotStart = 360;
+      const colPlotEnd = 800;
+      const colRight = 760;
+      const colWeight = 880;
+      const bottomPad = 80;
+      const height = Math.max(340, top + effects.length * rowHeight + bottomPad + 44);
+      forestPlot.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+      const allL = effects.map(e => e.lcl);
+      const allU = effects.map(e => e.ucl);
+      if (pooled) {
+        allL.push(pooled.pooledLCL);
+        allU.push(pooled.pooledUCL);
+      }
+
+      let minX = allL.length ? Math.min(...allL, 0.2) : 0.2;
+      let maxX = allU.length ? Math.max(...allU, 5) : 5;
+      minX = Math.min(minX, 0.5);
+      maxX = Math.max(maxX, 2);
+
+      const logMin = Math.log(minX);
+      const logMax = Math.log(maxX);
+      const xScale = x => colPlotStart + ((Math.log(x) - logMin) / (logMax - logMin)) * (colPlotEnd - colPlotStart);
+      const totalWeight = effects.reduce((acc, s) => acc + s.weight, 0) || 1;
+      const ticks = [0.25, 0.5, 1, 2, 4, 8, 16].filter(v => v >= minX * 0.95 && v <= maxX * 1.05);
+
+      let svg = '';
+      svg += `<defs>
+        <linearGradient id="bgFade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffffff"></stop>
+          <stop offset="100%" stop-color="#f9fbff"></stop>
+        </linearGradient>
+      </defs>`;
+      svg += `<rect x="0" y="0" width="${width}" height="${height}" rx="20" fill="url(#bgFade)"></rect>`;
+      svg += `<text x="${leftLabel}" y="30" font-size="16" font-weight="800" fill="#1d2d45">Estudo</text>`;
+      svg += `<text x="${(colPlotStart + colPlotEnd) / 2}" y="30" text-anchor="middle" font-size="16" font-weight="800" fill="#1d2d45">Forest plot, RR com IC 95%</text>`;
+      svg += `<text x="${colRight}" y="30" font-size="16" font-weight="800" fill="#1d2d45">RR [IC 95%]</text>`;
+      svg += `<text x="${colWeight}" y="30" font-size="16" font-weight="800" fill="#1d2d45">Peso</text>`;
+
+      svg += `<rect x="${colPlotStart}" y="44" width="${colPlotEnd - colPlotStart}" height="${height - 96}" fill="#fbfdff" stroke="#edf2f8"></rect>`;
+      svg += `<line x1="${xScale(1)}" y1="44" x2="${xScale(1)}" y2="${height - 46}" stroke="#d94747" stroke-width="2" stroke-dasharray="6,6"></line>`;
+      svg += `<line x1="${colPlotStart}" y1="44" x2="${colPlotEnd}" y2="44" stroke="#d8e1ee"></line>`;
+
+      ticks.forEach(t => {
+        const x = xScale(t);
+        svg += `<line x1="${x}" y1="44" x2="${x}" y2="${height - 58}" stroke="#e6edf7" stroke-width="1"></line>`;
+        svg += `<text x="${x}" y="${height - 26}" text-anchor="middle" font-size="12" fill="#66788f">${String(t).replace('.', ',')}</text>`;
+      });
+
+      effects.forEach((e, i) => {
+        const y = top + i * rowHeight;
+        const xL = xScale(Math.max(e.lcl, minX));
+        const xU = xScale(Math.min(e.ucl, maxX));
+        const xC = xScale(e.rr);
+        const weightPct = e.weight / totalWeight;
+        const boxSize = 10 + 22 * Math.sqrt(weightPct);
+
+        svg += `<text x="${leftLabel}" y="${y}" font-size="14" fill="#1d2d45">${escapeHtml(e.label)}</text>`;
+        svg += `<line x1="${xL}" y1="${y - 4}" x2="${xU}" y2="${y - 4}" stroke="#22314a" stroke-width="2.2"></line>`;
+        svg += `<line x1="${xL}" y1="${y - 10}" x2="${xL}" y2="${y + 2}" stroke="#22314a" stroke-width="2"></line>`;
+        svg += `<line x1="${xU}" y1="${y - 10}" x2="${xU}" y2="${y + 2}" stroke="#22314a" stroke-width="2"></line>`;
+        svg += `<rect x="${xC - boxSize / 2}" y="${y - 4 - boxSize / 2}" width="${boxSize}" height="${boxSize}" rx="4" fill="#2563eb" fill-opacity="0.90" stroke="#1848bc" stroke-width="1.4"></rect>`;
+        svg += `<text x="${colRight}" y="${y}" font-size="14" fill="#22314a">${fmt(e.rr, 2)} [${fmt(e.lcl, 2)}; ${fmt(e.ucl, 2)}]</text>`;
+        svg += `<text x="${colWeight}" y="${y}" font-size="14" fill="#22314a">${fmt(weightPct*100,1)}%</text>`;
+      });
+
+      if (pooled) {
+        const y = top + effects.length * rowHeight + 20;
+        const xL = xScale(Math.max(pooled.pooledLCL, minX));
+        const xU = xScale(Math.min(pooled.pooledUCL, maxX));
+        const xC = xScale(pooled.pooledRR);
+        const diamondHalfHeight = 11;
+
+        svg += `<line x1="${colPlotStart}" y1="${y - 18}" x2="${colPlotEnd}" y2="${y - 18}" stroke="#d8e1ee"></line>`;
+        svg += `<text x="${leftLabel}" y="${y}" font-size="15" font-weight="800" fill="#17314d">Efeito combinado</text>`;
+        svg += `<polygon points="${xL},${y - 4} ${xC},${y - 4 - diamondHalfHeight} ${xU},${y - 4} ${xC},${y - 4 + diamondHalfHeight}" fill="#11a579" stroke="#0c8863" stroke-width="2"></polygon>`;
+        svg += `<text x="${colRight}" y="${y}" font-size="15" font-weight="800" fill="#17314d">${fmt(pooled.pooledRR, 2)} [${fmt(pooled.pooledLCL, 2)}; ${fmt(pooled.pooledUCL, 2)}]</text>`;
+      }
+
+      svg += `<text x="${colPlotStart}" y="${height - 8}" font-size="12" fill="#66788f">Favorece intervenção</text>`;
+      svg += `<text x="${colPlotEnd}" y="${height - 8}" text-anchor="end" font-size="12" fill="#66788f">Favorece controle</text>`;
+      forestPlot.innerHTML = svg;
+    }
+
+    function exportForestPlotPNG() {
+      try {
+        const svgElement = document.getElementById('forestPlot');
+        const viewBox = svgElement.getAttribute('viewBox').split(' ').map(Number);
+        const svgWidth = viewBox[2] || 980;
+        const svgHeight = viewBox[3] || 420;
+
+        const serializer = new XMLSerializer();
+        let svgString = serializer.serializeToString(svgElement);
+
+        if (!svgString.includes('xmlns=')) {
+          svgString = svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+        }
+        if (!svgString.includes('xmlns:xlink=')) {
+          svgString = svgString.replace('<svg', '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+        }
+
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        const img = new Image();
+
+        img.onload = function() {
+          const scale = 2;
+          const canvas = document.createElement('canvas');
+          canvas.width = svgWidth * scale;
+          canvas.height = svgHeight * scale;
+          const ctx = canvas.getContext('2d');
+
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.setTransform(scale, 0, 0, scale, 0, 0);
+          ctx.drawImage(img, 0, 0, svgWidth, svgHeight);
+
+          URL.revokeObjectURL(url);
+
+          const link = document.createElement('a');
+          link.download = 'forest-plot-metanalise.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        };
+
+        img.onerror = function() {
+          URL.revokeObjectURL(url);
+          alert('Não foi possível exportar o forest plot em PNG.');
+        };
+
+        img.src = url;
+      } catch (error) {
+        console.error(error);
+        alert('Ocorreu um erro ao exportar o forest plot.');
+      }
+    }
+
+    function clearAll() {
+      studyBody.innerHTML = '';
+      studyCounter = 0;
+      addStudyRow();
+      addStudyRow();
+      addStudyRow();
+      calculateMeta();
+    }
+
+    function loadExample() {
+      studyBody.innerHTML = '';
+      studyCounter = 0;
+      [
+        { label: 'Estudo A', e1: 12, n1: 120, e0: 20, n0: 118 },
+        { label: 'Estudo B', e1: 8, n1: 90, e0: 15, n0: 92 },
+        { label: 'Estudo C', e1: 25, n1: 210, e0: 34, n0: 208 },
+        { label: 'Estudo D', e1: 4, n1: 60, e0: 9, n0: 62 }
+      ].forEach(addStudyRow);
+      calculateMeta();
+    }
+
+    addStudyBtn.addEventListener('click', () => addStudyRow());
+    exampleBtn.addEventListener('click', loadExample);
+    calcBtn.addEventListener('click', calculateMeta);
+    clearBtn.addEventListener('click', clearAll);
+    exportPngBtn.addEventListener('click', exportForestPlotPNG);
+
+    clearAll();
+  </script>
+</body>
+</html>
